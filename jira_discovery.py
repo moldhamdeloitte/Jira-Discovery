@@ -169,8 +169,7 @@ with open("projects.json", "w") as f:
 
 # Part 2: Users/Group to Role mapping per project
 projectRoleMappings = {}
-#gatherProjectRoleMappings(projectRoleMappings, projectDetails.keys())
-gatherProjectRoleMappings(projectRoleMappings, ["API"])
+gatherProjectRoleMappings(projectRoleMappings, projectDetails.keys())
 
 with open("projectrolemappings.json", "w") as f:
     f.write(json.dumps(projectRoleMappings))
