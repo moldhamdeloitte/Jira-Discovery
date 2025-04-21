@@ -17,6 +17,7 @@ def gatherProjectDetails(projectDetails):
     index = 0
     while(not isLast):
         params = {"startAt" : index}
+        print(f"Getting high-level project details for index {index} to {index + 50}")
         response = requests.get(f"{prefix}/project/search", params=params, auth=auth).json()
         index += 50
         isLast = response["isLast"]
@@ -26,23 +27,37 @@ def gatherProjectDetails(projectDetails):
             projectKey = project["key"]
             projectDetails[projectKey] = getIndividualProjectDetails(projectKey=projectKey)
             projectDetails[projectKey]["id"] = project["id"]
-        # todo: get workflow schemes per project
+
+    getWorkflowSchemes(projectDetails)
 
 def getIndividualProjectDetails(projectKey):
+    print(f"Getting individual project details for project {projectKey}")
     jql = f"project%20%3D%20\"{projectKey}\"%20ORDER%20BY%20updated%20DESC"
     params = {"maxResults" : "1", "fields" : "updated", "jql" : jql}
     response = requests.get(f"{prefix}/search", params=params, auth=auth)
-    projectDetails = response.json()
+    details = response.json()
     try:
-        issueCount = projectDetails["total"]
+        issueCount = details["total"]
     except:
         issueCount = 0
     if issueCount == 0:
         lastUpdated = ""
     else:
-        lastUpdated = projectDetails["issues"][0]["fields"]["updated"]
+        lastUpdated = details["issues"][0]["fields"]["updated"]
     return {"issueCount" : issueCount, "lastUpdated" : lastUpdated}
 
+def getWorkflowSchemes(projectDetails):
+    for project in projectDetails:
+        print(f"Getting workflow scheme for project {project}")
+        id = projectDetails[project]["id"]
+        params = {"projectId" : id}
+        response = requests.get(f"{prefix}/workflowscheme/project", params=params, auth=auth)
+        details = response.json()
+
+        workflowScheme = details["values"]
+        if(len(workflowScheme) > 0):
+            schemeName = workflowScheme[0]["workflowScheme"]["name"]
+            projectDetails[project]["workflowscheme"] = schemeName
 
 
 def associateProjectsWithScheme(projectDetails, schemeType, schemeName, associatedProjects):
@@ -55,6 +70,7 @@ def getProjectSchemes(projectDetails, schemeType):
     isLast = False
     index = 0
     while(not isLast):
+        print(f"Getting projects in scheme {schemeType} at index {index} to {index + 50}")
         params = {"startAt" : index, "expand" : "projects"}
         response = requests.get(f"{prefix}/{schemeType}", params=params, auth=auth).json()
 
@@ -77,7 +93,7 @@ projectDetails = {}
 
 gatherProjectDetails(projectDetails)
 
-# not supported: "notificationscheme", "screenscheme", "workflowscheme", "issuesecurityschemes"
+# not supported: "notificationscheme", "screenscheme", "issuesecurityschemes"
 schemes = ["issuetypescheme", "issuetypescreenscheme", "priorityscheme"]
 
 getAllProjectSchemes(projectDetails, schemes)
