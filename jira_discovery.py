@@ -11,7 +11,7 @@ prefix = "https://mddeloitte-ja.atlassian.net/rest/api/2"
 headers = {"Accept": "application/json"}
 auth = HTTPBasicAuth(user, token)
 
-# Functions
+# Part 1 functions
 def gatherProjectDetails(projectDetails):
     isLast = False
     index = 0
@@ -28,7 +28,7 @@ def gatherProjectDetails(projectDetails):
             projectDetails[projectKey] = getIndividualProjectDetails(projectKey=projectKey)
             projectDetails[projectKey]["id"] = project["id"]
 
-    getWorkflowSchemes(projectDetails)
+    # getWorkflowSchemes(projectDetails)
 
 def getIndividualProjectDetails(projectKey):
     print(f"Getting individual project details for project {projectKey}")
@@ -88,7 +88,31 @@ def getAllProjectSchemes(projectDetails, schemes):
     for scheme in schemes:
         getProjectSchemes(projectDetails, scheme)
 
+# Part 2 functions
+def gatherProjectRoleMappings(projectRoleMappings, projects):
+    for project in projects:
+            # Todo: https://mddeloitte-ja.atlassian.net/rest/api/2/project/API/role
+            print(f"Getting role mappings for project {project}")
+            response = requests.get(f"{prefix}/project/{project}/role", auth=auth)
+            details = response.json()
+            print(details)
+            for role in details:
+                unpackRole(projectRoleMappings, project, details[role])
 
+def unpackRole(projectRoleMappings, project, url):
+    print(f"Unpacking role for project {project} at url {url}")
+    response = requests.get(url, auth=auth).json()
+    name = response["name"]
+    id = response["id"]
+    users = []
+    for user in response["actors"]:
+        users.append({user["id"] : user["displayName"]})
+    if project not in projectRoleMappings:
+        projectRoleMappings[project] = {id : {"roleName" : name, "users" : users}}
+    else:
+        projectRoleMappings[project][id] = {"roleName" : name, "users" : users}
+
+# Part 3 functions
 def gatherCustomFieldDetails(customFieldDetails):
     isLast = False
     index = 0
@@ -144,11 +168,16 @@ with open("projects.json", "w") as f:
 
 
 # Part 2: Users/Group to Role mapping per project
+projectRoleMappings = {}
+#gatherProjectRoleMappings(projectRoleMappings, projectDetails.keys())
+gatherProjectRoleMappings(projectRoleMappings, ["API"])
 
+with open("projectrolemappings.json", "w") as f:
+    f.write(json.dumps(projectRoleMappings))
 
 # Part 3: Number of custom fields + number of issues used against + last date used
 customFieldDetails = {}
 gatherCustomFieldDetails(customFieldDetails)
 
-with open("customfields.json", "w") as f:
+with open("customfields.json", "w") as f:   
     f.write(json.dumps(customFieldDetails))
