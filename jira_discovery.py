@@ -88,7 +88,48 @@ def getAllProjectSchemes(projectDetails, schemes):
     for scheme in schemes:
         getProjectSchemes(projectDetails, scheme)
 
+
+def gatherCustomFieldDetails(customFieldDetails):
+    isLast = False
+    index = 0
+    while(not isLast):
+        print(f"Getting high-level custom field details for index {index} to {index + 50}")
+        params = {"startAt" : index, "expand" : "lastUsed"}
+        response = requests.get(f"{prefix}/field/search", params=params, auth=auth).json()
+        index += 50
+        isLast = response["isLast"]
+
+        for field in response["values"]:
+            fieldId = field["id"]
+            if "customfield" in fieldId:
+                name = field["name"]
+                if "value" in field["lastUsed"]:
+                    lastUsed = field["lastUsed"]["value"]
+                else:
+                    lastUsed = ""
+                customFieldDetails[fieldId] = {"name": name, "lastUsed" : lastUsed}
+    
+    getIndividualCustomFieldDetails(customFieldDetails)
+
+def getIndividualCustomFieldDetails(customFieldDetails):
+    for customField in customFieldDetails:
+        name = customFieldDetails[customField]["name"]
+        print(f"Getting individual field details for field {name}")
+        jql = f"\"{name}\" IS NOT EMPTY"
+        params = {"maxResults" : "1", "fields" : "updated", "jql" : jql}
+        response = requests.get(f"{prefix}/search", params=params, auth=auth)
+        details = response.json()
+        try:
+            issueCount = details["total"]
+        except:
+            issueCount = 0
+        customFieldDetails[customField]["issueCount"] = issueCount
+
+
+
 # run
+
+# Part 1: Number of Projects with list of schemes per project and last time project was used and number of issues against that project
 projectDetails = {}
 
 gatherProjectDetails(projectDetails)
@@ -98,5 +139,16 @@ schemes = ["issuetypescheme", "issuetypescreenscheme", "priorityscheme"]
 
 getAllProjectSchemes(projectDetails, schemes)
 
-with open("output.json", "w") as f:
+with open("projects.json", "w") as f:
     f.write(json.dumps(projectDetails))
+
+
+# Part 2: Users/Group to Role mapping per project
+
+
+# Part 3: Number of custom fields + number of issues used against + last date used
+customFieldDetails = {}
+gatherCustomFieldDetails(customFieldDetails)
+
+with open("customfields.json", "w") as f:
+    f.write(json.dumps(customFieldDetails))
