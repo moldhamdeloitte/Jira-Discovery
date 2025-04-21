@@ -150,6 +150,57 @@ def getIndividualCustomFieldDetails(customFieldDetails):
         customFieldDetails[customField]["issueCount"] = issueCount
 
 
+# Part 4 functions
+def getAllUsers(userMapping):
+    isLast = False
+    index = 0
+    while(not isLast):
+        params = {"startAt" : index}
+        print(f"Getting users for index {index} to {index + 50}")
+        response = requests.get(f"{prefix}/users/search", params=params, auth=auth).json()
+        index += 50
+        isLast = len(response) == 0
+
+        for user in response:
+            id = user["accountId"]
+            name = user["displayName"]
+            active = user["active"]
+            userMapping[id] = {"name" : name, "active" : active, "groups" : []}
+
+def assignGroups(userMapping):
+    isLast = False
+    index = 0
+    while(not isLast):
+        params = {"startAt" : index}
+        print(f"Getting groups for index {index} to {index + 50}")
+        response = requests.get(f"{prefix}/group/bulk", params=params, auth=auth).json()
+        index += 50
+        isLast = response["isLast"]
+
+        for group in response["values"]:
+            id = group["groupId"]
+            name = group["name"]
+            userIds = getUsersInGroup(id)
+            assignGroupsToUsers(userMapping, userIds, name)
+
+def getUsersInGroup(groupId):
+    userIds = []
+    isLast = False
+    index = 0
+    while(not isLast):
+        params = {"startAt" : index, "groupId" : groupId}
+        print(f"Getting users in group {groupId} for index {index} to {index + 50}")
+        response = requests.get(f"{prefix}/group/member", params=params, auth=auth).json()
+        index += 50
+        isLast = response["isLast"]
+
+        for user in response["values"]:
+            userIds.append(user["accountId"])
+    return userIds
+
+def assignGroupsToUsers(userMapping, userIds, groupName):
+    for id in userIds:
+        userMapping[id]["groups"].append(groupName)
 
 # run
 
@@ -180,3 +231,11 @@ gatherCustomFieldDetails(customFieldDetails)
 
 with open("customfields.json", "w") as f:   
     f.write(json.dumps(customFieldDetails))
+
+# Part 4: User data for the instance (groups, last login, activity)
+userMapping = {}
+getAllUsers(userMapping)
+assignGroups(userMapping)
+
+with open("users.json", "w") as f:   
+    f.write(json.dumps(userMapping))
